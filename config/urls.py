@@ -16,8 +16,11 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # path("auth/", include("apps.market_hub.urls")), # You can keep or remove this as needed
+    path("api/v1/market/", include("apps.market_hub.api_urls")),
+    path("api/v1/core/", include("apps.core_identity.urls")),
 ]
