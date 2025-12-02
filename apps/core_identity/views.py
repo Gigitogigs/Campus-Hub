@@ -26,7 +26,7 @@ class UserRegistrationView(generics.CreateAPIView):
         # If it's not unique, it will raise a validation error, so we don't need to check manually.
 
         # Use perform_create which is the standard way in CreateAPIView. It calls serializer.save().
-        user = self.perform_create(serializer)
+        user = serializer.save()
 
         # --- OTP and Email Verification Logic ---
         # 1. Generate a 6-digit OTP
@@ -57,11 +57,6 @@ class UserRegistrationView(generics.CreateAPIView):
             headers=headers
         )
 
-    def perform_create(self, serializer):
-        # The serializer's save method will create the user instance.
-        # We return it so we can use the user object after it's created.
-        return serializer.save()
-    
 class StudentProfileCreateView(generics.CreateAPIView):
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -73,6 +68,27 @@ class StudentProfileCreateView(generics.CreateAPIView):
                 {"error": "A student profile for this user already exists."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
+        # --- University Email Domain Validation ---
+        # Get the university slug from the request data
+        university_slug = request.data.get('university')
+        if not university_slug:
+            return Response({"error": "University is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            university = University.objects.get(slug=university_slug)
+        except University.DoesNotExist:
+            return Response({"error": "Invalid university selected."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_email_domain = request.user.email.split('@')[-1]
+
+        if user_email_domain not in university.allowed_domains:
+            return Response(
+                {"error": f"Your email domain ('{user_email_domain}') is not allowed for {university.name}. Please register with a valid student email."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # --- End Validation ---
+
         # If no profile exists, proceed with creation
         return super().create(request, *args, **kwargs)
     
@@ -116,14 +132,18 @@ class EmailVerificationView(APIView):
 class UserLoginView(ObtainAuthToken):
     
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        # The default serializer expects 'username', but we use 'email'.
+        # We pass the email from the request as the username to the serializer.
+        login_data = request.data.copy()
+        login_data['username'] = request.data.get('email')
+        serializer = self.get_serializer(data=login_data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         
         if not user.is_verified:
             return Response(
                 {'error': 'Please verify your email before logging in.'}
-                , status=status.HTTP_401_UNAUTHORIZED
+                , status=status.HTTP_403_FORBIDDEN
             )
             
         token, created = Token.objects.get_or_create(user=user)

@@ -2,7 +2,7 @@ from django.db import models
 from apps.core_identity.models import User, University
 from django.utils.text import slugify
 import uuid
-
+from PIL import Image
 # Create your models here.
 class Category(models.Model):
     TYPE_CHOICES = [('EVENT', 'Event'), ('HUSTLE', 'Hustle')]
@@ -28,7 +28,7 @@ class Organization(models.Model):
     university = models.ForeignKey(University, on_delete=models.CASCADE)
     org_type = models.CharField(choices=TYPE_CHOICES, max_length=10)
     is_verified = models.BooleanField(default=False)
-    logo = models.ImageField(upload_to='orgs_logos/')
+    logo = models.ImageField(upload_to='orgs_logos/', blank=True, null=True)
     slug = models.SlugField(unique=True, blank=True)
     
     name = models.CharField(max_length=255)
@@ -46,9 +46,9 @@ class Organization(models.Model):
 class HustleListing(models.Model):
     STATUS_CHOICES = [('ACTIVE', 'Active'), ('SOLD', 'Sold'), ('DRAFT', 'Draft')]
     
-    Organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     university = models.ForeignKey(University, on_delete=models.CASCADE)
-    Category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True)
     
     title = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2)

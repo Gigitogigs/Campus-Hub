@@ -27,12 +27,12 @@ class ListingImageSerializer(serializers.ModelSerializer):
 class HustleListingSerializer(serializers.ModelSerializer):
     images = ListingImageSerializer(many=True, read_only=True)
     uploaded_images = MultipleFileField(write_only=True, required=False)
-    Category = serializers.SlugRelatedField(
+    category = serializers.SlugRelatedField(
         queryset=Category.objects.all(),
         slug_field='name',
         read_only=False
     )
-    Organization = serializers.SlugRelatedField(
+    organization = serializers.SlugRelatedField(
         queryset=Organization.objects.all(),
         slug_field='name',
         read_only=False

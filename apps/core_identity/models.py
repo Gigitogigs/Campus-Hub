@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 import uuid
+from .managers import CustomUserManager
 
 # Create your models here.
 class University(models.Model):
@@ -24,6 +25,8 @@ class User(AbstractUser):
     
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+    
+    objects = CustomUserManager()
     
 class StudentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
