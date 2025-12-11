@@ -20,7 +20,6 @@ Campus-Hub is a multi-tenant, university-focused platform designed to be a centr
 
 *   **Backend:** Python, Django, Django REST Framework
 *   **Database:** PostgreSQL (via `django-environ`)
-*   **Authentication:** DRF Token Authentication
 
 ## API Endpoints
 
