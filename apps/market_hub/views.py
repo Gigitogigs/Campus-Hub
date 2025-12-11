@@ -2,7 +2,8 @@ from django.shortcuts import render
 from apps.core_identity.models import User
 
 # Create your views here.
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.response import Response
 from .models import HustleListing, Organization, Event, Category, EventListing
 from .serializers import (
@@ -49,6 +50,10 @@ class CategoryListView(generics.ListAPIView):
 class HustleListingListCreateView(generics.ListCreateAPIView):
     serializer_class = HustleListingSerializer
     permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'price', 'status', 'organization']
+    search_fields = ['title', 'description']
+    ordering_fields = ['price', 'created_at']
     
     def get_queryset(self):
         user = self.request.user
@@ -71,6 +76,10 @@ class HustleListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 class EventListCreateView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'date_time']
+    search_fields = ['title', 'description', 'location']
+    ordering_fields = ['date_time', 'created_at']
 
     def get_queryset(self):
         return Event.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)

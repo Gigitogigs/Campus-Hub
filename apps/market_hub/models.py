@@ -4,6 +4,15 @@ from django.utils.text import slugify
 import uuid
 from PIL import Image
 # Create your models here.
+
+def generate_unique_slug(instance, source_value):
+    base_slug = slugify(source_value)
+    unique_slug = base_slug
+    model_class = instance.__class__
+    while model_class.objects.filter(slug=unique_slug).exists():
+        unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
+    return unique_slug
+
 class Category(models.Model):
     TYPE_CHOICES = [('EVENT', 'Event'), ('HUSTLE', 'Hustle')]
     
@@ -14,11 +23,7 @@ class Category(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.name)
-            unique_slug = base_slug
-            while Category.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
-            self.slug = unique_slug
+            self.slug = generate_unique_slug(self, self.name)
         super().save(*args, **kwargs)
     
 class Organization(models.Model):
@@ -36,11 +41,7 @@ class Organization(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.name)
-            unique_slug = base_slug
-            while Organization.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
-            self.slug = unique_slug
+            self.slug = generate_unique_slug(self, self.name)
         super().save(*args, **kwargs)
     
 class HustleListing(models.Model):
@@ -64,11 +65,7 @@ class HustleListing(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.title)
-            unique_slug = base_slug
-            while HustleListing.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
-            self.slug = unique_slug
+            self.slug = generate_unique_slug(self, self.title)
         super().save(*args, **kwargs)
     
 class ListingImage(models.Model):
@@ -96,11 +93,7 @@ class Event(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.title)
-            unique_slug = base_slug
-            while Event.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
-            self.slug = unique_slug
+            self.slug = generate_unique_slug(self, self.title)
         super().save(*args, **kwargs)
     
 class EventListing(models.Model):
@@ -121,9 +114,5 @@ class EventListing(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.title)
-            unique_slug = base_slug
-            while EventListing.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{uuid.uuid4().hex[:4]}"
-            self.slug = unique_slug
+            self.slug = generate_unique_slug(self, self.title)
         super().save(*args, **kwargs)
