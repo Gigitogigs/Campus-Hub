@@ -37,6 +37,17 @@ class HustleListingSerializer(serializers.ModelSerializer):
         slug_field='name',
         read_only=False
     )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        
+        #check if we have a request and a logged in user
+        if request and hasattr(request.user, 'studentprofile'):
+            user_university = request.user.studentprofile.university
+            
+            #filter query set by organization using university
+            self.fields['organization'].queryset = Organization.objects.filter(university=user_university)
 
     class Meta:
         model = HustleListing
@@ -63,6 +74,14 @@ class EventSerializer(serializers.ModelSerializer):
         read_only=False
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        
+        if request and hasattr(request.user, 'studentprofile'):
+            user_university = request.user.studentprofile.university
+            self.fields['organization'].queryset = Organization.objects.filter(university=user_university)
+
     class Meta:
         model = Event
         fields = '__all__'
@@ -80,8 +99,19 @@ class EventListingSerializer(serializers.ModelSerializer):
         slug_field='slug',
         read_only=False
     )
-
+    
     class Meta:
         model = EventListing
         fields = '__all__'
         read_only_fields = ('university', 'is_deleted', 'posted_at')
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        
+        if request and hasattr(request.user, 'studentprofile'):
+            user_university = request.user.studentprofile.university
+            
+            #filter both fields
+            self.fields['organization'].queryset = Organization.objects.filter(university=user_university)
+            self.fields['event'].queryset = Event.objects.filter(university=user_university)

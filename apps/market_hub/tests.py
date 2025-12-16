@@ -42,6 +42,21 @@ class MarketHubAPITests(APITestCase):
             name='Test Shop',
             org_type='BUSINESS'
         )
+        
+        # Create another user (User B) for permission tests
+        self.other_user = User.objects.create_user(email='other@test.edu', password='password123', is_verified=True)
+        self.other_profile = StudentProfile.objects.create(
+            user=self.other_user,
+            university=self.university,
+            course='Arts',
+            year_of_study=1
+        )
+        self.other_organization = Organization.objects.create(
+            owner=self.other_user,
+            university=self.university,
+            name='Other Shop',
+            org_type='BUSINESS'
+        )
 
     # --- Permission Tests ---
     def test_access_denied_for_user_without_profile(self):
@@ -75,7 +90,7 @@ class MarketHubAPITests(APITestCase):
         }
         response = self.client.post(self.orgs_url, org_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Organization.objects.count(), 2)
+        self.assertEqual(Organization.objects.count(), 3)
         # Verify owner and university were set automatically
         self.assertEqual(response.data['owner'], self.profiled_user.id)
         self.assertEqual(response.data['university'], self.university.id)
@@ -137,6 +152,49 @@ class MarketHubAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'Updated Title')
         self.assertEqual(response.data['price'], '150.00')
+
+    def test_update_others_hustle_listing_forbidden(self):
+        """
+        Ensure a user cannot update a hustle listing belonging to another user's organization.
+        """
+        # Create a listing for User B's organization
+        hustle = HustleListing.objects.create(
+            organization=self.other_organization,
+            university=self.university,
+            category=self.category,
+            title='User B Item',
+            price='200.00'
+        )
+        
+        detail_url = reverse('hustle-detail', kwargs={'slug': hustle.slug})
+        update_data = {'title': 'Hacked Title'}
+        
+        # Authenticate as User A (self.profiled_user)
+        self.client.force_authenticate(user=self.profiled_user)
+        response = self.client.patch(detail_url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_update_others_organization_forbidden(self):
+        """
+        Ensure a user cannot update another user's organization.
+        """
+        url = reverse('organization-detail', kwargs={'slug': self.other_organization.slug})
+        update_data = {'name': 'Hacked Org Name'}
+        
+        self.client.force_authenticate(user=self.profiled_user)
+        response = self.client.patch(url, update_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_others_organization_forbidden(self):
+        """
+        Ensure a user cannot delete another user's organization.
+        """
+        url = reverse('organization-detail', kwargs={'slug': self.other_organization.slug})
+        self.client.force_authenticate(user=self.profiled_user)
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # --- Event Tests ---
     def test_create_event_success(self):
