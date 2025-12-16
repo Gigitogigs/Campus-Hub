@@ -1,8 +1,11 @@
+import io
+from PIL import Image as PilImage
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 from rest_framework import status
 from apps.core_identity.models import User, University, StudentProfile
-from .models import Category, Organization, HustleListing
+from .models import Category, Organization, HustleListing, Event, EventListing
 
 class MarketHubAPITests(APITestCase):
     """
@@ -28,7 +31,10 @@ class MarketHubAPITests(APITestCase):
         self.hustles_url = reverse('hustle-list-create')
         self.orgs_url = reverse('organization-list-create')
         self.category = Category.objects.create(name='Electronics', cat_type='HUSTLE', icon='url.com/icon')
-        
+        self.event_category = Category.objects.create(name='Concert', cat_type='EVENT', icon='url.com/icon')
+        self.events_url = reverse('event-list-create')
+        self.event_listings_url = reverse('event-listing-list-create')
+
         # Create a default organization for the profiled user to use in tests
         self.organization = Organization.objects.create(
             owner=self.profiled_user,
@@ -131,3 +137,89 @@ class MarketHubAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['title'], 'Updated Title')
         self.assertEqual(response.data['price'], '150.00')
+
+    # --- Event Tests ---
+    def test_create_event_success(self):
+        """
+        Ensure a user can create an event with an image.
+        """
+        self.client.force_authenticate(user=self.profiled_user)
+        
+        # Create a dummy image file
+        file = io.BytesIO()
+        image = PilImage.new('RGB', (100, 100), 'white')
+        image.save(file, 'JPEG')
+        file.seek(0)
+        image_file = SimpleUploadedFile("test_event.jpg", file.read(), content_type="image/jpeg")
+        
+        event_data = {
+            'title': 'Campus Music Fest',
+            'category': self.event_category.name,
+            'organization': self.organization.name,
+            'date_time': '2023-12-25T18:00:00Z',
+            'location': 'Main Hall',
+            'description': 'A night of music and fun.',
+            'image': image_file
+        }
+
+        # Use multipart format for file uploads
+        response = self.client.post(self.events_url, event_data, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Event.objects.count(), 1)
+        self.assertEqual(response.data['university'], self.university.id)
+
+    def test_retrieve_event_by_slug(self):
+        """
+        Ensure an event can be retrieved by its slug.
+        """
+        event = Event.objects.create(
+            organization=self.organization,
+            university=self.university,
+            title='Art Exhibition',
+            category=self.event_category,
+            date_time='2023-11-20T10:00:00Z',
+            location='Art Gallery',
+            description='Showcasing student art.',
+            image='events/test.jpg'
+        )
+        
+        url = reverse('event-detail', kwargs={'slug': event.slug})
+        self.client.force_authenticate(user=self.profiled_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'Art Exhibition')
+
+    # --- Event Listing Tests ---
+    def test_create_event_listing_success(self):
+        """
+        Ensure a user can create an event listing linked to an event.
+        """
+        # First create the parent event
+        event = Event.objects.create(
+            organization=self.organization,
+            university=self.university,
+            title='Tech Talk',
+            category=self.event_category,
+            date_time='2023-11-20T10:00:00Z',
+            location='Auditorium',
+            description='Talk about tech.',
+            image='events/tech.jpg'
+        )
+
+        self.client.force_authenticate(user=self.profiled_user)
+        
+        data = {
+            'title': 'Tech Talk Tickets',
+            'organization': self.organization.name,
+            'event': event.slug,  # Linking via slug
+            'description': 'Get your tickets here.'
+        }
+
+        response = self.client.post(self.event_listings_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(EventListing.objects.count(), 1)
+        
+        # Verify the relationship
+        created_listing = EventListing.objects.get()
+        self.assertEqual(created_listing.event, event)
+        self.assertEqual(created_listing.university, self.university)

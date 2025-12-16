@@ -52,8 +52,16 @@ class HustleListingSerializer(serializers.ModelSerializer):
 
 
 class EventSerializer(serializers.ModelSerializer):
-    organization = serializers.SlugRelatedField(slug_field='name', read_only=True)
-    category = serializers.SlugRelatedField(slug_field='name', read_only=True)
+    organization = serializers.SlugRelatedField(
+        queryset=Organization.objects.all(),
+        slug_field='name',
+        read_only=False
+    )
+    category = serializers.SlugRelatedField(
+        queryset=Category.objects.all(),
+        slug_field='name',
+        read_only=False
+    )
 
     class Meta:
         model = Event
@@ -62,10 +70,18 @@ class EventSerializer(serializers.ModelSerializer):
 
 
 class EventListingSerializer(serializers.ModelSerializer):
-    organization = serializers.SlugRelatedField(slug_field='name', read_only=True)
-    event = serializers.SlugRelatedField(slug_field='title', read_only=True)
+    organization = serializers.SlugRelatedField(
+        queryset=Organization.objects.all(),
+        slug_field='name',
+        read_only=False
+    )
+    event = serializers.SlugRelatedField(
+        queryset=Event.objects.all(),
+        slug_field='slug',
+        read_only=False
+    )
 
     class Meta:
         model = EventListing
         fields = '__all__'
-        read_only_fields = ('organization', 'university', 'is_deleted', 'posted_at')
+        read_only_fields = ('university', 'is_deleted', 'posted_at')

@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
-    "django-filters",
+    "django_filters",
     # My apps
     "apps.core_identity",
     "apps.data_engine",
