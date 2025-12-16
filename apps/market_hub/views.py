@@ -2,7 +2,9 @@ from django.shortcuts import render
 from apps.core_identity.models import User
 
 # Create your views here.
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.response import Response
 from .models import HustleListing, Organization, Event, Category, EventListing
 from .serializers import (
@@ -12,7 +14,7 @@ from .serializers import (
     CategorySerializer,
     EventListingSerializer,
 )
-from .permissions import HasStudentProfile
+from .permissions import HasStudentProfile, IsOwnerOrReadOnly
 
 # Organization Views
 class OrganizationListCreateView(generics.ListCreateAPIView):
@@ -32,7 +34,7 @@ class OrganizationListCreateView(generics.ListCreateAPIView):
 
 class OrganizationRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OrganizationSerializer
-    permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    permission_classes = [permissions.IsAuthenticated, HasStudentProfile, IsOwnerOrReadOnly]
     lookup_field = 'slug'
     
     def get_queryset(self):
@@ -46,9 +48,23 @@ class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
 
 # Hustle Listing Views
+@extend_schema_view(
+    get=extend_schema(
+        summary="List Hustles",
+        description="Retrieve a list of all hustle listings available within your university. You can filter by category, price, or search by title."
+    ),
+    post=extend_schema(
+        summary="Create a Hustle",
+        description="Create a new hustle listing. You must have a student profile to perform this action."
+    )
+)
 class HustleListingListCreateView(generics.ListCreateAPIView):
     serializer_class = HustleListingSerializer
     permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'price', 'status', 'organization']
+    search_fields = ['title', 'description']
+    ordering_fields = ['price', 'created_at']
     
     def get_queryset(self):
         user = self.request.user
@@ -60,7 +76,7 @@ class HustleListingListCreateView(generics.ListCreateAPIView):
 
 class HustleListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = HustleListingSerializer
-    permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    permission_classes = [permissions.IsAuthenticated, HasStudentProfile, IsOwnerOrReadOnly]
     lookup_field = 'slug'
 
     def get_queryset(self):
@@ -71,6 +87,10 @@ class HustleListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 class EventListCreateView(generics.ListCreateAPIView):
     serializer_class = EventSerializer
     permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'date_time']
+    search_fields = ['title', 'description', 'location']
+    ordering_fields = ['date_time', 'created_at']
 
     def get_queryset(self):
         return Event.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
@@ -80,7 +100,7 @@ class EventListCreateView(generics.ListCreateAPIView):
 
 class EventRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventSerializer
-    permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    permission_classes = [permissions.IsAuthenticated, HasStudentProfile, IsOwnerOrReadOnly]
     lookup_field = 'slug'
     
     def get_queryset(self):
@@ -89,7 +109,10 @@ class EventRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 # Event Listing Views
 class EventListingListCreateView(generics.ListCreateAPIView):
     serializer_class = EventListingSerializer
-    permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    permission_classes = [permissions.IsAuthenticated, HasStudentProfile, IsOwnerOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description']
+    ordering_fields = ['posted_at', 'created_at']
 
     def get_queryset(self):
         return EventListing.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
@@ -99,7 +122,7 @@ class EventListingListCreateView(generics.ListCreateAPIView):
         
 class EventListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = EventListingSerializer
-    permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
+    permission_classes = [permissions.IsAuthenticated, HasStudentProfile, IsOwnerOrReadOnly]
     lookup_field = 'slug'
     
     def get_queryset(self):

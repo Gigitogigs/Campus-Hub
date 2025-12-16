@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
-import random
+import secrets
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
@@ -30,7 +30,7 @@ class UserRegistrationView(generics.CreateAPIView):
 
         # --- OTP and Email Verification Logic ---
         # 1. Generate a 6-digit OTP
-        otp_code = str(random.randint(100000, 999999))
+        otp_code = ''.join(secrets.choice('0123456789') for _ in range(6))
 
         # 2. Save the OTP to the database, linked to the user
         # Use update_or_create to handle cases where an unverified user tries to register again.

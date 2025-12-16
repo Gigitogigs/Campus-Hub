@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_filters",
+    "drf_spectacular",
     # My apps
     "apps.core_identity",
     "apps.data_engine",
@@ -149,7 +151,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ]
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # --- CORS (Cross-Origin Resource Sharing) ---
@@ -169,3 +172,10 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='no-reply@campushub.com')
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Campus Hub API',
+    'DESCRIPTION': 'API documentation for Campus Hub, a multi-tenant university platform.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
