@@ -4,6 +4,7 @@ from apps.core_identity.models import User
 # Create your views here.
 from rest_framework import generics, permissions, status, filters
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework.response import Response
 from .models import HustleListing, Organization, Event, Category, EventListing
 from .serializers import (
@@ -47,6 +48,16 @@ class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
 
 # Hustle Listing Views
+@extend_schema_view(
+    get=extend_schema(
+        summary="List Hustles",
+        description="Retrieve a list of all hustle listings available within your university. You can filter by category, price, or search by title."
+    ),
+    post=extend_schema(
+        summary="Create a Hustle",
+        description="Create a new hustle listing. You must have a student profile to perform this action."
+    )
+)
 class HustleListingListCreateView(generics.ListCreateAPIView):
     serializer_class = HustleListingSerializer
     permission_classes = [permissions.IsAuthenticated, HasStudentProfile]
