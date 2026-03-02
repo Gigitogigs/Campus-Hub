@@ -11,12 +11,21 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 
 
 # Create your views here.
 class UserRegistrationView(generics.CreateAPIView):
+    """
+    Handles the first step of user registration.
+    
+    Accepts user details, creates an unverified User object, and dispatches a
+    6-digit OTP to the provided email address for verification.
+    """
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny] # Allow anyone to register
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'otp_request'
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -58,6 +67,12 @@ class UserRegistrationView(generics.CreateAPIView):
         )
 
 class StudentProfileCreateView(generics.CreateAPIView):
+    """
+    Creates a StudentProfile for an authenticated, verified user.
+    
+    Enforces domain validation to ensure the user's email domain matches
+    one of the allowed domains of the selected University before creating the profile.
+    """
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -96,6 +111,9 @@ class StudentProfileCreateView(generics.CreateAPIView):
         serializer.save(user=self.request.user)
         
 class StudentProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
+    """
+    Allows a user to retrieve or update their own StudentProfile.
+    """
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     
@@ -104,7 +122,15 @@ class StudentProfileRetrieveUpdateView(generics.RetrieveUpdateAPIView):
         return self.request.user.studentprofile
         
 class EmailVerificationView(APIView):
+    """
+    Verifies a user's email address using a 6-digit OTP code.
+    
+    If the code is correct and hasn't expired (10 mins), the user's `is_verified`
+    flag is set to True, allowing them to log in.
+    """
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'anon'
     
     def post(self, request, *args, **kwargs):
         email = request.data.get('email')
@@ -130,6 +156,12 @@ class EmailVerificationView(APIView):
             return Response({'error': 'Invalid OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
         
 class UserLoginView(ObtainAuthToken):
+    """
+    Authenticates a user and returns a DRF static token.
+    
+    Users cannot log in unless they have successfully verified their email
+    via the OTP process (`is_verified=True`).
+    """
     
     def post(self, request, *args, **kwargs):
         # The default serializer expects 'username', but we use 'email'.
@@ -156,6 +188,11 @@ class UserLoginView(ObtainAuthToken):
         
         
 class UniversityListView(generics.ListAPIView):
+    """
+    Publicly lists all available universities and their allowed email domains.
+    
+    Used by the frontend registration/profile-creation forms to populate dropdowns.
+    """
     queryset = University.objects.all()
     serializer_class = UniversitySerializer
     permission_classes = [permissions.AllowAny] #List is public

@@ -7,6 +7,10 @@ from PIL import Image
 
 
 class SluggedModel(models.Model):
+    """
+    Abstract base model that automatically generates and ensures unique slugs
+    for instances based on their title or name field.
+    """
     slug = models.SlugField(unique=True, blank=True)
 
     class Meta:
@@ -28,6 +32,9 @@ class SluggedModel(models.Model):
         super().save(*args, **kwargs)
 
 class Category(SluggedModel):
+    """
+    Represents a category for grouping HustleListings or Events.
+    """
     TYPE_CHOICES = [('EVENT', 'Event'), ('HUSTLE', 'Hustle')]
     
     name = models.CharField(max_length=100)
@@ -35,6 +42,10 @@ class Category(SluggedModel):
     icon = models.URLField() # link to Cloudinary icon
     
 class Organization(SluggedModel):
+    """
+    Represents an entity (Business, Club, School) on campus that can post events or hustles.
+    Organizations belong strictly to one University.
+    """
     TYPE_CHOICES = [('BUSINESS', 'Business'), ('CLUB', 'Club'), ('SCHOOL', 'School')]
     
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -47,6 +58,10 @@ class Organization(SluggedModel):
     whatsapp_number = models.CharField(max_length=20, blank=True, help_text="Format: +2547xxxxxxxxx. Buyers will click to chat")
     
 class HustleListing(SluggedModel):
+    """
+    A marketplace listing (product or service) posted by an Organization.
+    Implements a soft-delete mechanism via `is_deleted`.
+    """
     STATUS_CHOICES = [('ACTIVE', 'Active'), ('SOLD', 'Sold'), ('DRAFT', 'Draft')]
     
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
@@ -65,10 +80,17 @@ class HustleListing(SluggedModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class ListingImage(models.Model):
+    """
+    Image instances securely linked to a HustleListing.
+    """
     listing = models.ForeignKey(HustleListing, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='listings/')
     
 class Event(SluggedModel):
+    """
+    An event hosted by an Organization within a specific University.
+    Implements soft deletion via `is_deleted`.
+    """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     university = models.ForeignKey(University, on_delete=models.CASCADE)
     
@@ -84,10 +106,14 @@ class Event(SluggedModel):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
+        """Returns the event title and the university slug context."""
         return f"{self.title} - {self.university.slug}"
 
 class EventListing(SluggedModel):
-    
+    """
+    Additional promotional listing details built around an Event.
+    Also implements soft deletion via `is_deleted`.
+    """
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     university = models.ForeignKey(University, on_delete=models.CASCADE)
     

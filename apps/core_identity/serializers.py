@@ -3,6 +3,10 @@ from rest_framework import serializers
 import uuid
 
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for handling User registration.
+    Converts incoming JSON to a User model, handling password hashing securely.
+    """
     class Meta:
         model = User
         fields = ('id', 'email', 'password', 'is_verified')
@@ -21,6 +25,10 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 class StudentProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the StudentProfile model.
+    Handles reading/writing the user's specific campus context and linking them to a University.
+    """
     user_email = serializers.EmailField(source='user.email', read_only=True)
     # For read operations, display the university's slug.
     # For write operations, look up the university by its 'id' (UUID).
@@ -35,6 +43,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ('user',)
         
 class UniversitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for the University model.
+    Provides basic read-only data for populating public selection lists.
+    """
     class Meta:
         model = University
         fields = ('name', 'slug')

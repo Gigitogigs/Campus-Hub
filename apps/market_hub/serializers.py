@@ -3,9 +3,17 @@ from .models import HustleListing, Organization, Category, ListingImage, Event, 
 from apps.core_identity.models import User
 
 class MultipleFileField(serializers.ListField):
+    """
+    Custom serializer field that accepts a list of files.
+    Used for uploading multiple images for a HustleListing in a single request.
+    """
     child = serializers.FileField()
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Organization model.
+    Read-only exposes the owner's email for frontend display.
+    """
     owner_email = serializers.EmailField(source='owner.email', read_only=True)
     class Meta:
         model = Organization
@@ -13,18 +21,32 @@ class OrganizationSerializer(serializers.ModelSerializer):
         read_only_fields = ('owner', 'university', 'is_verified')
 
 class CategorySerializer(serializers.ModelSerializer):
+    """
+    Basic serializer for categories, exposing the name, type, and icon URL.
+    """
     class Meta:
         model = Category
         fields = '__all__'
 
 
 class ListingImageSerializer(serializers.ModelSerializer):
+    """
+    Serializer for individual ListingImage instances.
+    Nested inside the HustleListingSerializer for read operations.
+    """
     class Meta:
         model = ListingImage
         fields = '__all__'
 
 
 class HustleListingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the HustleListing model.
+    
+    Handles complex nested writes for `uploaded_images` (creating ListingImage instances).
+    Dynamically filters the available `organization` choices in the browsable API/Swagger
+    to only show Organizations belonging to the user's University context.
+    """
     images = ListingImageSerializer(many=True, read_only=True)
     uploaded_images = MultipleFileField(write_only=True, required=False)
     category = serializers.SlugRelatedField(
@@ -63,6 +85,12 @@ class HustleListingSerializer(serializers.ModelSerializer):
 
 
 class EventSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Event model.
+    
+    Dynamically limits the `organization` selection choices during creation to those
+    belonging to the requesting user's University context.
+    """
     organization = serializers.SlugRelatedField(
         queryset=Organization.objects.all(),
         slug_field='name',
@@ -89,6 +117,12 @@ class EventSerializer(serializers.ModelSerializer):
 
 
 class EventListingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the EventListing model.
+    
+    Dynamically limits both the available `organization` and `event` options during 
+    creation/update to those existing within the user's University context.
+    """
     organization = serializers.SlugRelatedField(
         queryset=Organization.objects.all(),
         slug_field='name',
