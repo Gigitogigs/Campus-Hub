@@ -4,14 +4,17 @@ from .models import User, StudentProfile, EmailVerification, University
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.request import Request
-from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
 import secrets
+import logging
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.throttling import ScopedRateThrottle
+
+logger = logging.getLogger('apps.core_identity')
 
 
 # Create your views here.
@@ -155,38 +158,55 @@ class EmailVerificationView(APIView):
         except EmailVerification.DoesNotExist:
             return Response({'error': 'Invalid OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
         
-class UserLoginView(ObtainAuthToken):
+class UserLoginView(APIView):
     """
-    Authenticates a user and returns a DRF static token.
+    Authenticates a user and returns a JWT access/refresh token pair.
     
-    Users cannot log in unless they have successfully verified their email
-    via the OTP process (`is_verified=True`).
+    - Uses `login` throttle scope (5 attempts/minute) to block brute-force attacks.
+    - Logs failed login attempts (email + IP) to the application error log for auditing.
+    - Users cannot log in unless they have verified their email (`is_verified=True`).
+    - On success returns: `{ "access": "...", "refresh": "..." }`
     """
-    
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
+
     def post(self, request, *args, **kwargs):
-        # The default serializer expects 'username', but we use 'email'.
-        # We pass the email from the request as the username to the serializer.
-        login_data = request.data.copy()
-        login_data['username'] = request.data.get('email')
-        serializer = self.get_serializer(data=login_data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not email or not password:
+            return Response(
+                {'error': 'Email and password are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(request, username=email, password=password)
+
+        if user is None:
+            # Log the failed attempt with the email and IP address for security auditing.
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'unknown'))
+            logger.warning(f"Failed login attempt for email='{email}' from IP={ip}")
+            return Response(
+                {'error': 'Invalid email or password.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
         if not user.is_verified:
             return Response(
-                {'error': 'Please verify your email before logging in.'}
-                , status=status.HTTP_403_FORBIDDEN
+                {'error': 'Please verify your email before logging in.'},
+                status=status.HTTP_403_FORBIDDEN
             )
-            
-        token, created = Token.objects.get_or_create(user=user)
-        
+
+        refresh = RefreshToken.for_user(user)
         return Response({
-            'token': token.key,
-            'user_id': user.pk,
-            'email': user.email
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user_id': str(user.pk),
+            'email': user.email,
         })
-        
-        
+
+
 class UniversityListView(generics.ListAPIView):
     """
     Publicly lists all available universities and their allowed email domains.
@@ -196,4 +216,3 @@ class UniversityListView(generics.ListAPIView):
     queryset = University.objects.all()
     serializer_class = UniversitySerializer
     permission_classes = [permissions.AllowAny] #List is public
-    

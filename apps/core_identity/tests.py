@@ -88,7 +88,9 @@ class CoreIdentityAPITests(APITestCase):
         user.save()
         response = self.client.post(self.login_url, self.user_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('token', response.data)
+        # Assert the new JWT pair keys are present
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
         
         #Profile Creation Tests
     def test_create_student_profile_success(self):
@@ -153,3 +155,59 @@ class CoreIdentityAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("is not allowed for Test University", response.data['error'])
         self.assertFalse(StudentProfile.objects.filter(user=user_with_invalid_email).exists())
+
+
+    # === JWT-Specific Tests ===
+
+    def test_login_returns_jwt_pair(self):
+        """Valid credentials for a verified user should return access and refresh tokens."""
+        user = User.objects.create_user(email='jwt@test.edu', password='pass1234', is_verified=True)
+        response = self.client.post(self.login_url, {'email': 'jwt@test.edu', 'password': 'pass1234'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertIn('user_id', response.data)
+
+    def test_login_unverified_user_blocked(self):
+        """An unverified user should be rejected with 403 before tokens are issued."""
+        User.objects.create_user(email='unverified@test.edu', password='pass1234', is_verified=False)
+        response = self.client.post(self.login_url, {'email': 'unverified@test.edu', 'password': 'pass1234'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_login_invalid_credentials(self):
+        """Wrong password should return 401 Unauthorized."""
+        User.objects.create_user(email='valid@test.edu', password='correct_password', is_verified=True)
+        response = self.client.post(self.login_url, {'email': 'valid@test.edu', 'password': 'wrong_password'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_protected_endpoint_with_bearer_token(self):
+        """A valid Bearer token should grant access to a protected endpoint."""
+        user = User.objects.create_user(email='bearer@test.edu', password='pass1234', is_verified=True)
+        StudentProfile.objects.create(user=user, university=self.university, course="CS", year_of_study=1)
+        # Login to get the JWT
+        login_response = self.client.post(self.login_url, {'email': 'bearer@test.edu', 'password': 'pass1234'}, format='json')
+        access_token = login_response.data['access']
+        # Use the JWT to access a protected route
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get(self.profile_detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_token_refresh(self):
+        """Posting a valid refresh token should return a new access token."""
+        user = User.objects.create_user(email='refresh@test.edu', password='pass1234', is_verified=True)
+        login_response = self.client.post(self.login_url, {'email': 'refresh@test.edu', 'password': 'pass1234'}, format='json')
+        refresh_token = login_response.data['refresh']
+        refresh_url = reverse('token-refresh')
+        response = self.client.post(refresh_url, {'refresh': refresh_token}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('access', response.data)
+
+    def test_login_throttling(self):
+        """Exceeding the login rate limit (5/minute) should return 429 Too Many Requests."""
+        User.objects.create_user(email='throttle@test.edu', password='pass1234', is_verified=True)
+        data = {'email': 'throttle@test.edu', 'password': 'wrong'}
+        for _ in range(5):
+            self.client.post(self.login_url, data, format='json')
+        # The 6th request should be throttled
+        response = self.client.post(self.login_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
