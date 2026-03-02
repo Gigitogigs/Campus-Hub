@@ -90,7 +90,7 @@ class HustleListingListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        return HustleListing.objects.filter(university=user.studentprofile.university, is_deleted=False)
+        return HustleListing.objects.filter(university=user.studentprofile.university)
 
     def perform_create(self, serializer):
         # Automatically assign the university based on the user's profile
@@ -109,7 +109,7 @@ class HustleListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 
     def get_queryset(self):
         user = self.request.user
-        return HustleListing.objects.filter(university=user.studentprofile.university, is_deleted=False)
+        return HustleListing.objects.filter(university=user.studentprofile.university)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -133,7 +133,7 @@ class EventListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['date_time', 'created_at']
 
     def get_queryset(self):
-        return Event.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
+        return Event.objects.filter(university=self.request.user.studentprofile.university)
 
     def perform_create(self, serializer):
         serializer.save(university=self.request.user.studentprofile.university)
@@ -150,7 +150,7 @@ class EventRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'slug'
     
     def get_queryset(self):
-        return Event.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
+        return Event.objects.filter(university=self.request.user.studentprofile.university)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -173,7 +173,7 @@ class EventListingListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['posted_at', 'created_at']
 
     def get_queryset(self):
-        return EventListing.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
+        return EventListing.objects.filter(university=self.request.user.studentprofile.university)
 
     def perform_create(self, serializer):
         event = serializer.validated_data.get('event')
@@ -192,7 +192,7 @@ class EventListingRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
     lookup_field = 'slug'
     
     def get_queryset(self):
-        return EventListing.objects.filter(university=self.request.user.studentprofile.university, is_deleted=False)
+        return EventListing.objects.filter(university=self.request.user.studentprofile.university)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

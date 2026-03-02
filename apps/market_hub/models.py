@@ -3,6 +3,7 @@ from apps.core_identity.models import User, University
 from django.utils.text import slugify
 import uuid
 from PIL import Image
+from .managers import ActiveManager
 # Create your models here.
 
 
@@ -31,6 +32,23 @@ class SluggedModel(models.Model):
                 self.slug = self.generate_unique_slug(source_value)
         super().save(*args, **kwargs)
 
+class SoftDeleteModel(models.Model):
+    """
+    Abstract base class providing soft-delete functionality.
+    
+    Models inheriting from this will automatically use `ActiveManager` as their 
+    default manager (`.objects`), ensuring that deleted records (is_deleted=True)
+    are hidden from standard querysets. 
+    A secondary manager (`.all_objects`) is provided to access all records if needed.
+    """
+    is_deleted = models.BooleanField(default=False)
+    
+    objects = ActiveManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
 class Category(SluggedModel):
     """
     Represents a category for grouping HustleListings or Events.
@@ -57,7 +75,7 @@ class Organization(SluggedModel):
     name = models.CharField(max_length=255)
     whatsapp_number = models.CharField(max_length=20, blank=True, help_text="Format: +2547xxxxxxxxx. Buyers will click to chat")
     
-class HustleListing(SluggedModel):
+class HustleListing(SluggedModel, SoftDeleteModel):
     """
     A marketplace listing (product or service) posted by an Organization.
     Implements a soft-delete mechanism via `is_deleted`.
@@ -74,8 +92,6 @@ class HustleListing(SluggedModel):
     
     status = models.CharField(choices=STATUS_CHOICES, default='ACTIVE', max_length=10)
     
-    #Soft Delete logic
-    is_deleted = models.BooleanField(default=False)
     is_updated = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -86,7 +102,7 @@ class ListingImage(models.Model):
     listing = models.ForeignKey(HustleListing, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to='listings/')
     
-class Event(SluggedModel):
+class Event(SluggedModel, SoftDeleteModel):
     """
     An event hosted by an Organization within a specific University.
     Implements soft deletion via `is_deleted`.
@@ -102,14 +118,13 @@ class Event(SluggedModel):
     location = models.CharField(max_length=255)
     description = models.TextField()
     
-    is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         """Returns the event title and the university slug context."""
         return f"{self.title} - {self.university.slug}"
 
-class EventListing(SluggedModel):
+class EventListing(SluggedModel, SoftDeleteModel):
     """
     Additional promotional listing details built around an Event.
     Also implements soft deletion via `is_deleted`.
@@ -123,6 +138,4 @@ class EventListing(SluggedModel):
     description = models.TextField()
     media = models.FileField(upload_to='event_listing_media/', blank=True, null=True)
     
-    #Soft Delete logic
-    is_deleted = models.BooleanField(default=False)
     posted_at = models.DateTimeField(auto_now_add=True)
